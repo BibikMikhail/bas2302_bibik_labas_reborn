@@ -4,6 +4,7 @@ import com.example.smarthome.security.*;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +35,14 @@ public class AuthController {
     @GetMapping("/csrf")
     public Map<String, String> csrf(CsrfToken token) {
         return Map.of("csrfToken", token.getToken());
+    }
+
+    @GetMapping("/me")
+    public Map<String, Object> me(Authentication authentication) {
+        return Map.of(
+                "username", authentication.getName(),
+                "authorities", authentication.getAuthorities()
+        );
     }
 
     public static class RegisterRequest {
