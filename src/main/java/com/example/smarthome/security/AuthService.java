@@ -124,5 +124,27 @@ public class AuthService {
                 "tokenType", "Bearer"
         );
     }
+
+    @Transactional
+    public Map<String, String> logout(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new IllegalArgumentException("refresh token is required");
+        }
+        if (!jwtTokenProvider.isRefreshToken(refreshToken)) {
+            throw new IllegalArgumentException("invalid refresh token");
+        }
+
+        String refreshTokenId = jwtTokenProvider.getTokenId(refreshToken);
+        UserSession session = userSessionRepository.findByRefreshTokenId(refreshTokenId)
+                .orElseThrow(() -> new IllegalArgumentException("session not found"));
+
+        if (session.getStatus() == SessionStatus.ACTIVE) {
+            session.setStatus(SessionStatus.REVOKED);
+            session.setUpdatedAt(Instant.now());
+            userSessionRepository.save(session);
+        }
+
+        return Map.of("status", "logged_out");
+    }
 }
 

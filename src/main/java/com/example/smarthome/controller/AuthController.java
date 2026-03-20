@@ -41,6 +41,11 @@ public class AuthController {
         return ResponseEntity.ok(authService.refresh(request.refreshToken));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(authService.logout(request.refreshToken));
+    }
+
     @GetMapping("/csrf")
     public Map<String, String> csrf() {
         return Map.of("status", "csrf disabled for stateless jwt");
