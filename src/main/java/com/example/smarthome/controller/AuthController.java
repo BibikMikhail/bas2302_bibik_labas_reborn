@@ -21,8 +21,13 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        AppRole role = AppRole.valueOf(request.role.toUpperCase());
-        authService.register(request.username, request.password, role);
+        authService.registerUser(request.username, request.password);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "registered", "role", "USER"));
+    }
+
+    @PostMapping("/register-admin")
+    public ResponseEntity<?> registerAdmin(@RequestBody RegisterRequest request) {
+        authService.registerWithRole(request.username, request.password, AppRole.ADMIN);
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "registered"));
     }
 
@@ -37,9 +42,6 @@ public class AuthController {
 
         @NotBlank
         public String password;
-
-        @NotBlank
-        public String role;
     }
 }
 

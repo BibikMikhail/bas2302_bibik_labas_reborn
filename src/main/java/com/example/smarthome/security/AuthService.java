@@ -17,7 +17,12 @@ public class AuthService {
     }
 
     @Transactional
-    public void register(String username, String rawPassword, AppRole role) {
+    public void registerUser(String username, String rawPassword) {
+        registerWithRole(username, rawPassword, AppRole.USER);
+    }
+
+    @Transactional
+    public void registerWithRole(String username, String rawPassword, AppRole role) {
         if (username == null || username.isBlank()) throw new IllegalArgumentException("username is required");
         PasswordValidator.validate(rawPassword);
         if (appUserRepository.findByUsername(username).isPresent()) throw new IllegalArgumentException("username already used");

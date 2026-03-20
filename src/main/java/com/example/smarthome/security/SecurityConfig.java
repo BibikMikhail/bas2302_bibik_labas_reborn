@@ -36,6 +36,7 @@ public class SecurityConfig {
                 .httpBasic(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/register", "/api/auth/csrf").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/auth/register-admin").hasRole("ADMIN")
                         .requestMatchers("/", "/health").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/events/log").hasAnyRole("ADMIN", "USER")
                         .requestMatchers("/api/scenarios/**").hasAnyRole("ADMIN", "USER")
@@ -71,3 +72,4 @@ public class SecurityConfig {
         return http.build();
     }
 }
+
