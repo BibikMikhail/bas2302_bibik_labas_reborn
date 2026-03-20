@@ -1,71 +1,115 @@
 package com.example.smarthome.service;
 
+import com.example.smarthome.dto.EventLogItem;
+import com.example.smarthome.model.AutomationRule;
 import com.example.smarthome.model.Event;
+import com.example.smarthome.repository.AutomationRuleRepository;
+import com.example.smarthome.repository.DeviceRepository;
+import com.example.smarthome.repository.EventRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class EventService {
 
-    private final Map<Long, Event> storage = new ConcurrentHashMap<>();
-    private final AtomicLong nextId = new AtomicLong(1L);
+    private final EventRepository eventRepository;
+    private final DeviceRepository deviceRepository;
+    private final AutomationRuleRepository automationRuleRepository;
 
-    private final DeviceService deviceService;
-
-    public EventService(DeviceService deviceService) {
-        this.deviceService = deviceService;
+    public EventService(EventRepository eventRepository, DeviceRepository deviceRepository,
+                        AutomationRuleRepository automationRuleRepository) {
+        this.eventRepository = eventRepository;
+        this.deviceRepository = deviceRepository;
+        this.automationRuleRepository = automationRuleRepository;
     }
 
+    @Transactional
     public Event create(Event event) {
-        if (event.getDeviceId() != null && deviceService.getById(event.getDeviceId()).isEmpty()) {
+        if (event.getDeviceId() == null || !deviceRepository.existsById(event.getDeviceId())) {
             throw new IllegalArgumentException("Device with id " + event.getDeviceId() + " not found");
         }
-        Event entity = new Event(
-                null,
-                event.getDeviceId(),
-                event.getEventType(),
-                event.getPayload(),
-                event.getCreatedAt() != null ? event.getCreatedAt() : Instant.now()
-        );
-        entity.setId(nextId.getAndIncrement());
-        storage.put(entity.getId(), entity);
-        return entity;
+        Event entity = new Event();
+        entity.setEventType(event.getEventType());
+        entity.setPayload(event.getPayload());
+        entity.setCreatedAt(event.getCreatedAt() != null ? event.getCreatedAt() : Instant.now());
+        entity.setDevice(deviceRepository.getReferenceById(event.getDeviceId()));
+        return eventRepository.save(entity);
     }
 
     public Optional<Event> getById(Long id) {
-        return Optional.ofNullable(storage.get(id));
+        return eventRepository.findById(id);
     }
 
     public List<Event> getAll() {
-        return List.copyOf(storage.values());
+        return eventRepository.findAll();
     }
 
     public List<Event> getByDeviceId(Long deviceId) {
-        return storage.values().stream()
-                .filter(e -> deviceId.equals(e.getDeviceId()))
+        return eventRepository.findByDevice_Id(deviceId);
+    }
+
+    public List<EventLogItem> getEventsLog() {
+        return eventRepository.findAllForLog().stream()
+                .map(e -> new EventLogItem(
+                        e.getId(),
+                        e.getDevice() != null ? e.getDevice().getName() : null,
+                        (e.getDevice() != null && e.getDevice().getRoom() != null) ? e.getDevice().getRoom().getName() : null,
+                        e.getEventType(),
+                        e.getActionPerformed(),
+                        e.getCreatedAt()
+                ))
                 .toList();
     }
 
+    @Transactional
     public Optional<Event> update(Long id, Event event) {
-        Event existing = storage.get(id);
-        if (existing == null) return Optional.empty();
-        if (event.getDeviceId() != null && deviceService.getById(event.getDeviceId()).isEmpty()) {
+        if (event.getDeviceId() != null && !deviceRepository.existsById(event.getDeviceId())) {
             throw new IllegalArgumentException("Device with id " + event.getDeviceId() + " not found");
         }
-        existing.setDeviceId(event.getDeviceId());
-        existing.setEventType(event.getEventType());
-        existing.setPayload(event.getPayload());
-        if (event.getCreatedAt() != null) existing.setCreatedAt(event.getCreatedAt());
-        return Optional.of(existing);
+        return eventRepository.findById(id)
+                .map(existing -> {
+                    existing.setEventType(event.getEventType());
+                    existing.setPayload(event.getPayload());
+                    if (event.getDeviceId() != null) {
+                        existing.setDevice(deviceRepository.getReferenceById(event.getDeviceId()));
+                    }
+                    if (event.getCreatedAt() != null) existing.setCreatedAt(event.getCreatedAt());
+                    return eventRepository.save(existing);
+                });
     }
 
+    @Transactional
     public boolean delete(Long id) {
-        return storage.remove(id) != null;
+        if (!eventRepository.existsById(id)) return false;
+        eventRepository.deleteById(id);
+        return true;
+    }
+
+    /** Бизнес-операция: записать событие и вернуть подходящие правила (Event + AutomationRule, одна транзакция). */
+    @Transactional
+    public Map<String, Object> recordEventAndFindMatchingRules(Event event) {
+        if (event.getDeviceId() == null || !deviceRepository.existsById(event.getDeviceId())) {
+            throw new IllegalArgumentException("Device with id " + event.getDeviceId() + " not found");
+        }
+        Event entity = new Event();
+        entity.setEventType(event.getEventType());
+        entity.setPayload(event.getPayload());
+        entity.setCreatedAt(event.getCreatedAt() != null ? event.getCreatedAt() : Instant.now());
+        entity.setDevice(deviceRepository.getReferenceById(event.getDeviceId()));
+        Event saved = eventRepository.save(entity);
+        String eventType = saved.getEventType();
+        List<AutomationRule> matching = eventType != null
+                ? automationRuleRepository.findByTriggerEventTypeAndActiveTrue(eventType)
+                : List.of();
+        Map<String, Object> result = new HashMap<>();
+        result.put("event", saved);
+        result.put("matchingRules", matching);
+        return result;
     }
 }

@@ -1,5 +1,6 @@
 package com.example.smarthome.controller;
 
+import com.example.smarthome.dto.EventLogItem;
 import com.example.smarthome.model.Event;
 import com.example.smarthome.service.EventService;
 import org.springframework.http.HttpStatus;
@@ -43,6 +44,11 @@ public class EventController {
         return eventService.getAll();
     }
 
+    @GetMapping("/log")
+    public List<EventLogItem> getLog() {
+        return eventService.getEventsLog();
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody Event event) {
         try {
@@ -61,4 +67,5 @@ public class EventController {
         }
         return ResponseEntity.noContent().build();
     }
+
 }

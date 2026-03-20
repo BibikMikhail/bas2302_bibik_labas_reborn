@@ -1,23 +1,44 @@
 package com.example.smarthome.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
+
 import java.time.Instant;
 
+@Entity
+@Table(name = "events")
 public class Event {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "device_id", nullable = false, foreignKey = @ForeignKey(name = "fk_event_device"))
+    @JsonIgnore
+    private Device device;
+
+    @Size(max = 100)
+    @Column(name = "event_type")
+    private String eventType;
+
+    @Size(max = 2000)
+    private String payload;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
+
+    /** Что было сделано в ответ на это событие (для демо/журнала). */
+    @Size(max = 500)
+    @Column(name = "action_performed")
+    private String actionPerformed;
+
+    /** Для приёма/отдачи deviceId в JSON (API). */
+    @Transient
     private Long deviceId;
-    private String eventType;   // например: MOTION_DETECTED, TEMPERATURE_HIGH, BUTTON_PRESSED
-    private String payload;     // произвольные данные (JSON или текст)
-    private Instant createdAt;
 
     public Event() {
-    }
-
-    public Event(Long id, Long deviceId, String eventType, String payload, Instant createdAt) {
-        this.id = id;
-        this.deviceId = deviceId;
-        this.eventType = eventType;
-        this.payload = payload;
-        this.createdAt = createdAt != null ? createdAt : Instant.now();
     }
 
     public Long getId() {
@@ -28,8 +49,16 @@ public class Event {
         this.id = id;
     }
 
+    public Device getDevice() {
+        return device;
+    }
+
+    public void setDevice(Device device) {
+        this.device = device;
+    }
+
     public Long getDeviceId() {
-        return deviceId;
+        return device != null ? device.getId() : deviceId;
     }
 
     public void setDeviceId(Long deviceId) {
@@ -57,6 +86,14 @@ public class Event {
     }
 
     public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
+        this.createdAt = createdAt != null ? createdAt : Instant.now();
+    }
+
+    public String getActionPerformed() {
+        return actionPerformed;
+    }
+
+    public void setActionPerformed(String actionPerformed) {
+        this.actionPerformed = actionPerformed;
     }
 }

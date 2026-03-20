@@ -45,7 +45,7 @@ public class RoomController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!roomService.getById(id).isPresent()) {
+        if (roomService.getById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         if (!roomService.delete(id)) {

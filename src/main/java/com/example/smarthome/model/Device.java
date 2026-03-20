@@ -1,21 +1,39 @@
 package com.example.smarthome.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+@Entity
+@Table(name = "devices")
 public class Device {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @NotBlank
+    @Size(max = 255)
+    @Column(nullable = false)
     private String name;
-    private String type;       // например: LAMP, SENSOR, THERMOSTAT
-    private Long roomId;
+
+    @Size(max = 100)
+    private String type;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id", foreignKey = @ForeignKey(name = "fk_device_room"))
+    @JsonIgnore
+    private Room room;
+
+    @Column(name = "active", nullable = false)
     private boolean active = true;
 
-    public Device() {
-    }
+    /** Для приёма/отдачи roomId в JSON (API). При загрузке из БД берётся из room.getId(). */
+    @Transient
+    private Long roomId;
 
-    public Device(Long id, String name, String type, Long roomId, boolean active) {
-        this.id = id;
-        this.name = name;
-        this.type = type;
-        this.roomId = roomId;
-        this.active = active;
+    public Device() {
     }
 
     public Long getId() {
@@ -42,8 +60,17 @@ public class Device {
         this.type = type;
     }
 
+    public Room getRoom() {
+        return room;
+    }
+
+    public void setRoom(Room room) {
+        this.room = room;
+    }
+
+    /** В API отдаём и принимаем roomId; при чтении из БД — из связи room. */
     public Long getRoomId() {
-        return roomId;
+        return room != null ? room.getId() : roomId;
     }
 
     public void setRoomId(Long roomId) {

@@ -1,89 +1,101 @@
 package com.example.smarthome.service;
 
 import com.example.smarthome.model.AutomationRule;
+import com.example.smarthome.model.Device;
+import com.example.smarthome.model.Room;
+import com.example.smarthome.model.User;
+import com.example.smarthome.repository.AutomationRuleRepository;
+import com.example.smarthome.repository.DeviceRepository;
+import com.example.smarthome.repository.RoomRepository;
+import com.example.smarthome.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class AutomationRuleService {
 
-    private final Map<Long, AutomationRule> storage = new ConcurrentHashMap<>();
-    private final AtomicLong nextId = new AtomicLong(1L);
+    private final AutomationRuleRepository automationRuleRepository;
+    private final DeviceRepository deviceRepository;
+    private final UserRepository userRepository;
+    private final RoomRepository roomRepository;
 
-    private final DeviceService deviceService;
-    private final UserService userService;
-    private final RoomService roomService;
-
-    public AutomationRuleService(DeviceService deviceService, UserService userService, RoomService roomService) {
-        this.deviceService = deviceService;
-        this.userService = userService;
-        this.roomService = roomService;
+    public AutomationRuleService(AutomationRuleRepository automationRuleRepository,
+                                 DeviceRepository deviceRepository,
+                                 UserRepository userRepository,
+                                 RoomRepository roomRepository) {
+        this.automationRuleRepository = automationRuleRepository;
+        this.deviceRepository = deviceRepository;
+        this.userRepository = userRepository;
+        this.roomRepository = roomRepository;
     }
 
+    @Transactional
     public AutomationRule create(AutomationRule rule) {
-        if (rule.getTargetDeviceId() != null && deviceService.getById(rule.getTargetDeviceId()).isEmpty()) {
+        if (rule.getTargetDeviceId() != null && !deviceRepository.existsById(rule.getTargetDeviceId())) {
             throw new IllegalArgumentException("Target device with id " + rule.getTargetDeviceId() + " not found");
         }
-        if (rule.getTargetUserId() != null && userService.getById(rule.getTargetUserId()).isEmpty()) {
+        if (rule.getTargetUserId() != null && !userRepository.existsById(rule.getTargetUserId())) {
             throw new IllegalArgumentException("Target user with id " + rule.getTargetUserId() + " not found");
         }
-        if (rule.getRoomId() != null && !roomService.exists(rule.getRoomId())) {
+        if (rule.getRoomId() != null && !roomRepository.existsById(rule.getRoomId())) {
             throw new IllegalArgumentException("Room with id " + rule.getRoomId() + " not found");
         }
         AutomationRule entity = new AutomationRule();
-        entity.setId(nextId.getAndIncrement());
         entity.setName(rule.getName());
         entity.setTriggerEventType(rule.getTriggerEventType());
         entity.setActionType(rule.getActionType());
-        entity.setTargetDeviceId(rule.getTargetDeviceId());
-        entity.setTargetUserId(rule.getTargetUserId());
-        entity.setRoomId(rule.getRoomId());
         entity.setActive(rule.isActive());
-        storage.put(entity.getId(), entity);
-        return entity;
+        if (rule.getTargetDeviceId() != null) {
+            entity.setTargetDevice(deviceRepository.getReferenceById(rule.getTargetDeviceId()));
+        }
+        if (rule.getTargetUserId() != null) {
+            entity.setTargetUser(userRepository.getReferenceById(rule.getTargetUserId()));
+        }
+        if (rule.getRoomId() != null) {
+            entity.setRoom(roomRepository.getReferenceById(rule.getRoomId()));
+        }
+        return automationRuleRepository.save(entity);
     }
 
     public Optional<AutomationRule> getById(Long id) {
-        return Optional.ofNullable(storage.get(id));
+        return automationRuleRepository.findById(id);
     }
 
     public List<AutomationRule> getAll() {
-        return List.copyOf(storage.values());
+        return automationRuleRepository.findAll();
     }
 
+    @Transactional
     public Optional<AutomationRule> update(Long id, AutomationRule rule) {
-        AutomationRule existing = storage.get(id);
-        if (existing == null) return Optional.empty();
-        if (rule.getTargetDeviceId() != null && deviceService.getById(rule.getTargetDeviceId()).isEmpty()) {
+        if (rule.getTargetDeviceId() != null && !deviceRepository.existsById(rule.getTargetDeviceId())) {
             throw new IllegalArgumentException("Target device with id " + rule.getTargetDeviceId() + " not found");
         }
-        if (rule.getTargetUserId() != null && userService.getById(rule.getTargetUserId()).isEmpty()) {
+        if (rule.getTargetUserId() != null && !userRepository.existsById(rule.getTargetUserId())) {
             throw new IllegalArgumentException("Target user with id " + rule.getTargetUserId() + " not found");
         }
-        if (rule.getRoomId() != null && !roomService.exists(rule.getRoomId())) {
+        if (rule.getRoomId() != null && !roomRepository.existsById(rule.getRoomId())) {
             throw new IllegalArgumentException("Room with id " + rule.getRoomId() + " not found");
         }
-        existing.setName(rule.getName());
-        existing.setTriggerEventType(rule.getTriggerEventType());
-        existing.setActionType(rule.getActionType());
-        existing.setTargetDeviceId(rule.getTargetDeviceId());
-        existing.setTargetUserId(rule.getTargetUserId());
-        existing.setRoomId(rule.getRoomId());
-        existing.setActive(rule.isActive());
-        return Optional.of(existing);
+        return automationRuleRepository.findById(id)
+                .map(existing -> {
+                    existing.setName(rule.getName());
+                    existing.setTriggerEventType(rule.getTriggerEventType());
+                    existing.setActionType(rule.getActionType());
+                    existing.setActive(rule.isActive());
+                    existing.setTargetDevice(rule.getTargetDeviceId() != null ? deviceRepository.getReferenceById(rule.getTargetDeviceId()) : null);
+                    existing.setTargetUser(rule.getTargetUserId() != null ? userRepository.getReferenceById(rule.getTargetUserId()) : null);
+                    existing.setRoom(rule.getRoomId() != null ? roomRepository.getReferenceById(rule.getRoomId()) : null);
+                    return automationRuleRepository.save(existing);
+                });
     }
 
+    @Transactional
     public boolean delete(Long id) {
-        return storage.remove(id) != null;
-    }
-
-    public boolean hasRulesForRoom(Long roomId) {
-        return storage.values().stream()
-                .anyMatch(r -> roomId.equals(r.getRoomId()));
+        if (!automationRuleRepository.existsById(id)) return false;
+        automationRuleRepository.deleteById(id);
+        return true;
     }
 }

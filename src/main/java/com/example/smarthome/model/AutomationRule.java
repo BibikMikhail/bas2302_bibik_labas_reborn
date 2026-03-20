@@ -1,14 +1,53 @@
 package com.example.smarthome.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Size;
+
+@Entity
+@Table(name = "automation_rules")
 public class AutomationRule {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Size(max = 255)
+    @Column(nullable = false)
     private String name;
-    private String triggerEventType;  // на какой тип события реагируем
-    private String actionType;        // TURN_ON_DEVICE, TURN_OFF_DEVICE, NOTIFY_USER
-    private Long targetDeviceId;      // для TURN_ON_DEVICE / TURN_OFF_DEVICE
-    private Long targetUserId;        // для NOTIFY_USER
-    private Long roomId;              // привязка к комнате (правило для комнаты)
+
+    @Size(max = 100)
+    @Column(name = "trigger_event_type")
+    private String triggerEventType;
+
+    @Size(max = 100)
+    @Column(name = "action_type")
+    private String actionType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_device_id", foreignKey = @ForeignKey(name = "fk_rule_target_device"))
+    @JsonIgnore
+    private Device targetDevice;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_user_id", foreignKey = @ForeignKey(name = "fk_rule_target_user"))
+    @JsonIgnore
+    private User targetUser;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id", foreignKey = @ForeignKey(name = "fk_rule_room"))
+    @JsonIgnore
+    private Room room;
+
+    @Column(nullable = false)
     private boolean active = true;
+
+    @Transient
+    private Long targetDeviceId;
+    @Transient
+    private Long targetUserId;
+    @Transient
+    private Long roomId;
 
     public AutomationRule() {
     }
@@ -45,8 +84,32 @@ public class AutomationRule {
         this.actionType = actionType;
     }
 
+    public Device getTargetDevice() {
+        return targetDevice;
+    }
+
+    public void setTargetDevice(Device targetDevice) {
+        this.targetDevice = targetDevice;
+    }
+
+    public User getTargetUser() {
+        return targetUser;
+    }
+
+    public void setTargetUser(User targetUser) {
+        this.targetUser = targetUser;
+    }
+
+    public Room getRoom() {
+        return room;
+    }
+
+    public void setRoom(Room room) {
+        this.room = room;
+    }
+
     public Long getTargetDeviceId() {
-        return targetDeviceId;
+        return targetDevice != null ? targetDevice.getId() : targetDeviceId;
     }
 
     public void setTargetDeviceId(Long targetDeviceId) {
@@ -54,7 +117,7 @@ public class AutomationRule {
     }
 
     public Long getTargetUserId() {
-        return targetUserId;
+        return targetUser != null ? targetUser.getId() : targetUserId;
     }
 
     public void setTargetUserId(Long targetUserId) {
@@ -62,7 +125,7 @@ public class AutomationRule {
     }
 
     public Long getRoomId() {
-        return roomId;
+        return room != null ? room.getId() : roomId;
     }
 
     public void setRoomId(Long roomId) {

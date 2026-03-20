@@ -1,48 +1,54 @@
 package com.example.smarthome.service;
 
 import com.example.smarthome.model.User;
+import com.example.smarthome.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class UserService {
 
-    private final Map<Long, User> storage = new ConcurrentHashMap<>();
-    private final AtomicLong nextId = new AtomicLong(1L);
+    private final UserRepository userRepository;
 
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
     public User create(User user) {
         User entity = new User(null, user.getName(), user.getEmail());
-        entity.setId(nextId.getAndIncrement());
-        storage.put(entity.getId(), entity);
-        return entity;
+        return userRepository.save(entity);
     }
 
     public Optional<User> getById(Long id) {
-        return Optional.ofNullable(storage.get(id));
+        return userRepository.findById(id);
     }
 
     public List<User> getAll() {
-        return List.copyOf(storage.values());
+        return userRepository.findAll();
     }
 
+    @Transactional
     public Optional<User> update(Long id, User user) {
-        User existing = storage.get(id);
-        if (existing == null) return Optional.empty();
-        existing.setName(user.getName());
-        existing.setEmail(user.getEmail());
-        return Optional.of(existing);
+        return userRepository.findById(id)
+                .map(existing -> {
+                    existing.setName(user.getName());
+                    existing.setEmail(user.getEmail());
+                    return userRepository.save(existing);
+                });
     }
 
+    @Transactional
     public boolean delete(Long id) {
-        return storage.remove(id) != null;
+        if (!userRepository.existsById(id)) return false;
+        userRepository.deleteById(id);
+        return true;
     }
 
     public boolean exists(Long id) {
-        return storage.containsKey(id);
+        return userRepository.existsById(id);
     }
 }
