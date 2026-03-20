@@ -14,7 +14,7 @@ public class Room {
 
     @NotBlank
     @Size(max = 255)
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String name;
 
     @Size(max = 1000)
