@@ -29,4 +29,6 @@ src/main/resources/application-local.properties
 .env
 *.env
 !*.env.example
-
+*.p12
+*.jks
+certs/
