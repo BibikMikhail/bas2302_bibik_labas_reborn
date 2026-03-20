@@ -3,6 +3,9 @@ package com.example.smarthome.service;
 import com.example.smarthome.dto.*;
 import com.example.smarthome.model.*;
 import com.example.smarthome.repository.*;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -148,12 +151,17 @@ public class ScenarioService {
         String roomName = sensor.getRoom().getName();
         List<String> performed = new ArrayList<>();
         String payload = null;
+        boolean isAdmin = currentIsAdmin();
         for (AutomationRule rule : rules) {
             if (ACTION_NOTIFY_USER.equals(rule.getActionType())) {
                 User user = resolveTargetUser(rule);
                 String message = "Протечка обнаружена в комнате \"" + roomName + "\"";
-                payload = message;
-                performed.add("Уведомление пользователю " + user.getName());
+                if (isAdmin) {
+                    payload = message;
+                    performed.add("Уведомление пользователю " + user.getName());
+                } else {
+                    performed.add("Уведомление отправлено администратору");
+                }
             }
         }
 
@@ -165,6 +173,15 @@ public class ScenarioService {
         result.put("eventId", saved.getId());
         result.put("actionPerformed", actionPerformed);
         return result;
+    }
+
+    private boolean currentIsAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) return false;
+        for (GrantedAuthority authority : authentication.getAuthorities()) {
+            if ("ROLE_ADMIN".equals(authority.getAuthority())) return true;
+        }
+        return false;
     }
 
     private Map<String, Object> speakerCommandInternal(Long speakerDeviceId, String roomName, boolean turnOn) {
