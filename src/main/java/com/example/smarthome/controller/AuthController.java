@@ -32,6 +32,16 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("status", "registered"));
     }
 
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request.username, request.password));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody RefreshRequest request) {
+        return ResponseEntity.ok(authService.refresh(request.refreshToken));
+    }
+
     @GetMapping("/csrf")
     public Map<String, String> csrf(CsrfToken token) {
         return Map.of("csrfToken", token.getToken());
@@ -51,6 +61,19 @@ public class AuthController {
 
         @NotBlank
         public String password;
+    }
+
+    public static class LoginRequest {
+        @NotBlank
+        public String username;
+
+        @NotBlank
+        public String password;
+    }
+
+    public static class RefreshRequest {
+        @NotBlank
+        public String refreshToken;
     }
 }
 
