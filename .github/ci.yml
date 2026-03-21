@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile
+        run: mvn -B compile
+
+      - name: Test
+        run: mvn -B test
+
+      - name: Package JAR
+        run: mvn -B package -DskipTests
+
+      - name: Upload JAR to artifact store (Actions artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: smarthome-${{ github.sha }}
+          path: target/*.jar
+          retention-days: 30
+
+      - name: Optional — restore keystore from GitHub Secrets
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          mkdir -p certs/smarthome-chain
+          printf '%s' "$KEYSTORE_B64" | base64 -d > certs/smarthome-chain/from-github-secret.p12
+          test -s certs/smarthome-chain/from-github-secret.p12
+          openssl pkcs12 -in certs/smarthome-chain/from-github-secret.p12 -nokeys -passin env:KEYSTORE_PASSWORD -out /dev/null 2>/dev/null || openssl pkcs12 -in certs/smarthome-chain/from-github-secret.p12 -nokeys -passin env:KEYSTORE_PASSWORD
+          echo "Keystore from KEYSTORE_BASE64 is valid (password from KEYSTORE_PASSWORD)."
